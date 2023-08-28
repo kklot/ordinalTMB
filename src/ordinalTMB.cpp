@@ -32,6 +32,8 @@ Type objective_function<Type>::operator()() {
   target -= pwll.sum();
 
   REPORT(cutpoints);
+  vector<Type> OR = exp(-beta);
+  REPORT(OR);
 
   return target;
 }
