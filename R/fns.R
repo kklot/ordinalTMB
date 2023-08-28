@@ -29,3 +29,17 @@ simplex_transform = function(y) {
 #' (sqrt(x %*% x) == 1)
 #' @export
 as_unit_vector = function(y) y/(sqrt(y %*% y)[1,1])
+
+#' make design matrix for IID random effect
+#'
+#' @param x subject ID column
+#' @export
+make_iid_matrix <- function (x) {
+    require(Matrix)
+    mm <- unique(x)
+    id <- match(x, mm)
+    ma <- matrix(0, length(x), length(mm))
+    ma[cbind(1:length(x), id)] <- 1
+    re <- as(ma, "sparseMatrix")
+    re
+}

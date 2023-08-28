@@ -31,9 +31,9 @@ I wanted to run an ordinal model with random effects, but for my data:
 ## TODO
 
 - [x] Fit a simple ordinal with logistic link and compare with `clm`'s estimates
-- [ ] Fit an ordinal logistic with random intercepts
-- [ ] add other links (logit, c-log-log,...)
-- [ ] add glm-ism formula interface
+- [x] Fit an ordinal logistic with random intercepts and compared with `clmm`
+- [ ] add other links (logit, c-log-log,...)?
+- [ ] add glm-ism formula interface?
 
 ## Workflow
 
@@ -44,14 +44,21 @@ I wanted to run an ordinal model with random effects, but for my data:
 data <- full_data |> na.omit()
 kdata = list()
 kdata$y <- data$outcome # coded as 1, 2,... as its order
-fm <- y ~ -1 + q + time + age # no intercept and covariates
+fm <- y ~ -1 + q + time + age # no intercept and with covariates
+# Fix effect
 mf <- model.frame(fm, data)
 kdata$X <- model.matrix(fm, mf)
 (J <- max(kdata$y)) # number of categories
 (K <- ncol(kdata$X)) # number of covariates
+# random effect
+kdata$R <- make_iid_matrix(data$id)
+(S <- length(unique(data$id)))
+# TMB parameters
 kpar <- list(
   pi_norm = rnorm(J - 1),
-  beta = rnorm(K)
+  beta = rnorm(K),
+  iid = rnorm(S), 
+  sd_log = log(1)
 )
 ```
 
@@ -63,6 +70,7 @@ devtools::load_all("~/ordinalTMB/") # load the package
 model <- ktools::MakeADFunSafe( # avoid crashing R's session
     data = kdata,
     parameters = kpar,
+    random = c('iid'),
     DLL = "ordinalTMB"
 )
 fit <- nlminb(model$par, model$fn, model$gr)

@@ -2,6 +2,7 @@
 
 export("%>%")
 export(as_unit_vector)
+export(make_iid_matrix)
 export(simplex_transform)
 importFrom(magrittr,"%>%")
 useDynLib(ordinalTMB, .registration=TRUE)
