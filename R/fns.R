@@ -52,7 +52,7 @@ make_iid_matrix <- function (x) {
 #' @param prec precision matrix
 #' @return n samples 
 #' @export 
-rmvnorm_sparseprec <- function(n, mean = rep(0, nrow(prec)), prec = diag(lenth(mean))) {
+rmvnorm_sparseprec <- function(n, mean = rep(0, nrow(prec)), prec = diag(length(mean))) {
   z <- matrix(rnorm(n * length(mean)), ncol = n)
   L_inv <- Matrix::Cholesky(prec)
   v <- mean +
@@ -103,7 +103,7 @@ sample_tmb <- function(fit, nsample = 1000, random_only = TRUE, verbose = TRUE) 
     if (verbose) print("Calculating joint precision")
     hess <- TMB::sdreport(fit$obj, fit$fit$par, getJointPrecision = TRUE)
     if (verbose) print("Drawing sample")
-    smp <- rmvnorm_sparseprec(nsample, par.full, hess)
+    smp <- rmvnorm_sparseprec(nsample, par.full, hess$jointPrecision)
   } else {
     r_id <- fit$obj$env$random
     par_f <- par.full[-r_id]
