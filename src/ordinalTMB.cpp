@@ -9,6 +9,7 @@ Type objective_function<Type>::operator()() {
   DATA_VECTOR(y);
   DATA_MATRIX(X);
   DATA_SPARSE_MATRIX(R);
+  DATA_INTEGER(shrinkage);
   
   PARAMETER_VECTOR(pi_norm); // length J-1, then transform to simplex J
   vector<Type> 
@@ -20,9 +21,14 @@ Type objective_function<Type>::operator()() {
 
   PARAMETER_VECTOR(iid);
   PARAMETER(sd_log);
-  Type sd = exp(sd_log);
-  target -= dnorm(sd, Type(0), Type(1), true) + sd_log; // half normal
-  target -= dnorm(iid, Type(0), sd, true).sum();
+
+  if (shrinkage) { 
+    Type sd = exp(sd_log);
+    target -= dnorm(sd, Type(0), Type(1), true) + sd_log; // half normal
+    target -= dnorm(iid, Type(0), sd, true).sum();
+  } else {
+    target -= dnorm(sd_log, Type(0), Type(1e6), true) + sd_log; // log normal - this equals clmm
+  }
 
   vector<Type> eta = X * beta;
   vector<Type> ide = R * iid;
