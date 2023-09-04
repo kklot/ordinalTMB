@@ -21,13 +21,14 @@ Type objective_function<Type>::operator()() {
 
   PARAMETER_VECTOR(iid);
   PARAMETER(sd_log);
+  Type sd = exp(sd_log);
 
   if (shrinkage) { 
-    Type sd = exp(sd_log);
     target -= dnorm(sd, Type(0), Type(1), true) + sd_log; // half normal
     target -= dnorm(iid, Type(0), sd, true).sum();
   } else {
     target -= dnorm(sd_log, Type(0), Type(1e6), true) + sd_log; // log normal - this equals clmm
+    target -= dnorm(iid, Type(0), sd, true).sum();
   }
 
   vector<Type> eta = X * beta;
