@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# ordinalTMB
+# ordinalTMB - univariate and multivariate ordinal regresison
 
 <!-- badges: start -->
 
@@ -11,29 +11,40 @@ experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](h
 
 ## Why?
 
-I wanted to run an ordinal model with random effects, but for my data:
+Run an ordinal model with random effects, but:
 
-- `ordinal::clmm` gives all the parameter estimates the same SE, not
-  sure why
-- `rstanarm::stan_polr` does not provide random effect specification (is
-  this true?)
-- `brms::brm()` with `cummulative` family seems like the one, but I
-  cannot get it to compile on my MacOS, or on my HPC server with
-  scientific linux, and on both systems with a separated `miniconda`
-  environment.
-  - all both systems, other packages using Eigen, Armadillo, Boost,
+- `ordinal::clmm` sometimes gave all the parameter estimates the same
+  SE, not sure why; nevertheless, the ultimate aim is to do Bayesian
+  inference
+- `rstanarm::stan_polr` does not provide random effect specification (?)
+- `brms::brm()` with `cummulative` family seems like the one, but failed
+  to compile on MacOS, or an HPC server (scientific linux), and on both
+  systems with a separated `miniconda` environment.
+  - on both systems, other packages using Eigen, Armadillo, Boost,
     INLA,…work fine.
+  - the data is large, so `brm` would be slow anyway
+- `INLA` [does not have ordinal model since
+  2015?](https://groups.google.com/g/r-inla-discussion-group/c/7Tl6DanHmtM/m/agDFK0w23VAJ)
+
+Moreover, to do multivariates ordinal regression
+
+- similar to `mvord`, `PLordprob`, which do not have random effect
+  specification
 
 ## TODO
 
-- [x] Fit a simple ordinal with logistic link and compare with `clm`’s
+By priorities
+
+- [x] Fit a simple ordinal with logistic link and compare with `clm`
   estimates
 - [x] Fit an ordinal logistic with random intercepts and compared with
   `clmm`
-- [ ] add other links (logit, c-log-log,…)?
+- [x] add probit link and compare with `clmm`, `clm`
+- [ ] add multivariates ordinal
+- [ ] add other links (c-log-log,…)
 - [ ] add glm-ism formula interface?
 
-## Workflow
+## Temporarily workflow - univariate ordinal
 
 1.  Clone the package
 2.  Prepare data and meta parameters for TMB like usual, example:

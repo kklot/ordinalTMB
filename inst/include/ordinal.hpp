@@ -1,5 +1,11 @@
 template <class Type>
-Type CDF_polr(Type x){return invlogit(x);}
+Type CDF_polr(Type x, int link = 1) {
+  // link 1 logit 2 probit
+  Type cum = 0;
+  if (link == 1) cum = invlogit(x);
+  if (link == 2) cum = pnorm(x);
+  return cum;
+}
 /** 
 * Pointwise (pw) log-likelihood vector
 *
@@ -10,17 +16,17 @@ Type CDF_polr(Type x){return invlogit(x);}
 * @return A vector of log-likelihods
 */
 template <class Type>
-vector<Type> pw_polr(vector<Type> y, vector<Type> eta, vector<Type> cutpoints) {
+vector<Type> pw_polr(vector<Type> y, vector<Type> eta, vector<Type> cutpoints, int link = 1) {
   int N = y.size(), J = cutpoints.size() + 1;
   vector<Type> ll(N);
   for (int n=0; n < N; n++) {
     int j = asDouble(y[n]); //raw data
     if (j == 1)
-      ll[n] = CDF_polr(cutpoints[1 - 1] - eta[n]);
+      ll[n] = CDF_polr(cutpoints[1 - 1] - eta[n], link);
     else if (j == J) 
-      ll[n] = 1 - CDF_polr(cutpoints[J - 1 - 1] - eta[n]);
+      ll[n] = 1 - CDF_polr(cutpoints[J - 1 - 1] - eta[n], link);
     else 
-      ll[n] = CDF_polr(cutpoints[j - 1] - eta[n]) - CDF_polr(cutpoints[j - 1 - 1] - eta[n]);
+      ll[n] = CDF_polr(cutpoints[j - 1] - eta[n], link) - CDF_polr(cutpoints[j - 1 - 1] - eta[n], link);
   }
   return log(ll);
 }
@@ -32,15 +38,21 @@ vector<Type> pw_polr(vector<Type> y, vector<Type> eta, vector<Type> cutpoints) {
 * @return A vector of length J - 1 whose elements are in increasing order
 */
 template <class Type>
-vector<Type> make_cutpoints(vector<Type> probabilities, Type scale = 1.0) {
+vector<Type> make_cutpoints(vector<Type> probabilities, int link = 1) {
   int C = probabilities.size() - 1; 
   vector<Type> cutpoints(C);
   Type running_sum = 0.0;
-  for (int c=0; c < C; c++) {
-    running_sum += probabilities[c];
-    cutpoints[c] = logit(running_sum);
-  }
-  return scale * cutpoints;
+  if (link == 1)
+    for (int c=0; c < C; c++) {
+      running_sum += probabilities[c];
+      cutpoints[c] = logit(running_sum);
+    } 
+  if (link == 2) 
+    for (int c=0; c < C; c++) {
+      running_sum += probabilities[c];
+      cutpoints[c] = qnorm(running_sum);
+    }
+  return cutpoints;
 }
 
 // transform unbounded to a simplex 

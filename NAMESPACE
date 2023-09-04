@@ -3,6 +3,8 @@
 export("%>%")
 export(as_unit_vector)
 export(make_iid_matrix)
+export(rmvnorm_sparseprec)
+export(sample_tmb)
 export(simplex_transform)
 importFrom(magrittr,"%>%")
 useDynLib(ordinalTMB, .registration=TRUE)
