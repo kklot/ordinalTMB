@@ -1,6 +1,22 @@
 #include <TMB.hpp>
 #include <ordinal.hpp>
 
+extern "C" {
+  double F77_NAME(mvbvn)(double *lower, double *upper, int *infin, double *correl);
+  const static R_CallMethodDef R_CallDef[] = {
+    TMB_CALLDEFS,
+    {"mvbvn", (DL_FUNC) &F77_NAME(mvbvn), 4},
+    {NULL, NULL, 0}
+  };
+  void R_init_ordinalTMB(DllInfo *dll) 
+  {
+    R_registerRoutines(dll, NULL, R_CallDef, NULL, NULL);
+    R_useDynamicSymbols(dll, FALSE);
+    TMB_CCALLABLES("ordinalTMB");
+  }
+}
+
+// Only for logit link
 template <class Type>
 Type objective_function<Type>::operator()() {
   Type target = 0.0;
