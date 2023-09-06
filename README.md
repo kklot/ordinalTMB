@@ -90,3 +90,10 @@ model <- ktools::MakeADFunSafe( # avoid crashing R's session
 fit <- nlminb(model$par, model$fn, model$gr)
 model$report() |> glimpse()
 ```
+
+## Temporarily workflow - multivariate ordinal
+
+Switch to branche `multivariate` and do similar things, expect the data
+preparation for the parameter estimates.
+
+- [ ] Add example of multivariate data and parameters
