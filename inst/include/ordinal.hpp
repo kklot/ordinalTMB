@@ -20,6 +20,26 @@
 
 
 /**
+ * Prior for correlation
+ * 
+ * See here:
+ * https://inla.r-inla-download.org/r-inla.org/doc/prior/betacorrelation.pdf
+*/
+template <class Type>
+Type beta_correlation_lpdf(Type theta, Type a = 2.0, Type b = 2.0) {
+    Type 
+      e_theta = exp(theta), 
+      p = e_theta / (1 + e_theta),
+      ld = dbeta(p, a, b, true) + theta - 2.0 * log(1.0 + e_theta);
+    return ld;
+}
+// Transform to correlation
+template <class Type>
+Type theta_to_rho(Type theta) {
+  Type rho = (exp(theta) - 1) / (exp(theta) + 1);
+  return rho;
+}
+/**
  * Fill covariance matrix with a vector of correlation 
 */
 template <class Type>

@@ -60,6 +60,11 @@ Type objective_function<Type>::operator()() {
   }
 
   PARAMETER_VECTOR(rhos); // cov() / sig1 * sig2 = ((Q*Q) - Q)/2
+  vector<Type> rhos_scale(rhos.size());
+  for (int i = 0; i < rhos.size(); ++i) {
+    rhos_scale[i] = theta_to_rho(rhos[i]);
+    target -= beta_correlation_lpdf(rhos[i], Type(2.0), Type(2.0));
+  }
 
   vector<Type> eta = X * beta;
   vector<Type> ide = R * iid;
@@ -74,8 +79,8 @@ Type objective_function<Type>::operator()() {
     int rho_id = 0; // unstructured correlation
     for (int q = 0; q < Q - 1; ++q) { // double loop through outcomes
       for (int p = q+1; p < Q; ++p) { // double loop through outcomes
-        Type c_rho = rhos[rho_id]; // current correllation
         int Yq = Y(n, q), Yp = Y(n, p); // current raw responses
+        Type c_rho = rhos_scale[rho_id]; // current correllation
         if (Yq == 1) { // dimension 1 prep for bivariate
           lower(0) = 0; // actually infty - see infin
           upper(0) = cutpoints(Yq - 1, q) - shift;
@@ -113,6 +118,7 @@ Type objective_function<Type>::operator()() {
 
   REPORT(cutpoints);
   REPORT(ll);
+  REPORT(rhos_scale);
 
   return target;
 }
