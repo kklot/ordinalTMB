@@ -16,6 +16,7 @@ LinkingTo:
 Imports: 
     dplyr,
     magrittr,
-    tidyr
+    tidyr,
+    TMB
 Suggests: 
     ggplot2

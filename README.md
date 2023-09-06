@@ -9,6 +9,10 @@
 experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 <!-- badges: end -->
 
+This package is written for the “Gender Across Spectrum” paper (doi to
+be updated), expecting to be reused further for Likert scales outcomes
+studies.
+
 ## Why?
 
 Run an ordinal model with random effects, but:
