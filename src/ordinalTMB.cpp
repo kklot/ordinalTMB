@@ -81,6 +81,8 @@ Type objective_function<Type>::operator()() {
       for (int p = q+1; p < Q; ++p) { // double loop through outcomes
         int Yq = Y(n, q), Yp = Y(n, p); // current raw responses
         Type c_rho = rhos_scale[rho_id]; // current correllation
+        ++rho_id; // increase here in case of skipping
+        if (std::isnan(Yq) | std::isnan(Yp)) continue;
         if (Yq == 1) { // dimension 1 prep for bivariate
           lower(0) = 0; // actually infty - see infin
           upper(0) = cutpoints(Yq - 1, q) - shift;
@@ -109,7 +111,6 @@ Type objective_function<Type>::operator()() {
         }
         double lli = mvbvn_(&lower(0), &upper(0), &infin(0), &c_rho);
         ll[n] = log(lli);
-        ++rho_id;
       } // end 2D
     } // end individual
   } // end data
