@@ -153,21 +153,8 @@ extern "C" {
   }
 }
 
-namespace katomic {
-
-  template<class Float>
-  Float make_bounds(Float x, Float r_max) {
-    Float ans = 0.0;
-    if (x == 1) { // dimension 1 prep for bivariate
-      ans = 0.;
-    } else if ((x > 1) & (x < r_max)) {
-      ans = 2.;              
-    } else if (x == r_max) {
-      ans = 1.;
-    }
-    return ans;
-  }
-
+namespace katomic 
+{
   template<class Float>
   struct BVN_t
   {
@@ -181,21 +168,18 @@ namespace katomic {
       
       int N_RESPONSES = 5, N_CUTS = N_RESPONSES - 1;
 
+      // make cutpoints
       vector<Float> c_pi0(N_CUTS);
       vector<Float> c_pi1(N_CUTS);
       c_pi0 << c1, c2, c3, c4;
       c_pi1 << c5, c6, c7, c8;
       vector<Float> pi0 = simplex_transform(c_pi0);
       vector<Float> pi1 = simplex_transform(c_pi1);
-
+      // find cuts
       vector<Float> C0(6), C1(6);
-      C0[0] = -INFINITY; C0[5] = INFINITY;
-      C1[0] = -INFINITY; C1[5] = INFINITY;
-
+      C0[0] = -FLT_MIN; C0[5] = FLT_MAX;
+      C1[0] = -FLT_MIN; C1[5] = FLT_MAX;
       CppAD::vector<double> cum_sum0(1), cum_sum1(1);
-      // Float = CppAD::vector<atomic::tiny_ad::variable<3, 2, double> >&
-      // CppAD::vector<Type> atomic::pnorm1 (CppAD::vector< Type > x)
-
       cum_sum0[0] = 0.;
       cum_sum1[0] = 0.;
       for (int c = 1; c <= 4; c++) {
@@ -205,27 +189,35 @@ namespace katomic {
         C1[c] = qnorm(cum_sum1[0]);
       }
 
-      int y1i = asDouble(y1);
-      int y2i = asDouble(y2);
+      int y1i = asDouble(y1), y2i = asDouble(y2);
       Float 
-        l0 = C0[y1i - 1], // trick to avoid ifs
-        u0 = C0[y1i    ], // trick to avoid ifs
-        l1 = C1[y2i - 1], // trick to avoid ifs
-        u1 = C1[y2i    ], // trick to avoid ifs
-        i0 = make_bounds(y1, Float(N_RESPONSES)),
-        i1 = make_bounds(y2, Float(N_RESPONSES));
+        ly1 = C0[y1i - 1] - eta,
+        uy1 = C0[y1i    ] - eta,
+        ly2 = C1[y2i - 1] - eta,
+        uy2 = C1[y2i    ] - eta, 
+        lower_null[2] = {FLT_MIN, FLT_MIN}, 
+        infin_null[2] = {0, 0},
+        upper[2] = {uy1, uy2};
 
-      // vector<Float> lower(2), upper(2), infin(2); 
-      Float lower[2], upper[2], infin[2]; 
-      lower[0] = l0 - eta;
-      lower[1] = l1 - eta;
-      upper[0] = u0 - eta;
-      upper[1] = u1 - eta;
-      infin[0] = i0;
-      infin[1] = i1;
-
-      ans += mvbvn_(&lower, &upper, &infin, &rho);
-      if (!atomic::tiny_ad::isfinite(ans)) ans = 0;
+      // Rectangle probs
+      Float p1 = mvbvn_(lower_null, upper, infin_null, &rho);
+      upper[0] = ly1;
+      upper[1] = uy2;
+      Float p2 = mvbvn_(lower_null, upper, infin_null, &rho);
+      upper[0] = uy1;
+      upper[1] = ly2;
+      Float p3 = mvbvn_(lower_null, upper, infin_null, &rho);
+      upper[0] = ly1;
+      upper[1] = ly2;
+      Float p4 = mvbvn_(lower_null, upper, infin_null, &rho);
+      using atomic::tiny_ad::isfinite;
+      p1 = (!isfinite(p1)) ? 0 : p1;
+      p2 = (!isfinite(p2)) ? 0 : p2;
+      p3 = (!isfinite(p3)) ? 0 : p3;
+      p4 = (!isfinite(p4)) ? 0 : p4;
+      Float pr = p1 - p2 - p3 + p4;
+      pr = (pr < 0) ? 0 : pr; // what to do better?
+      ans += pr;
       return ans;
     };
   };
@@ -243,7 +235,7 @@ namespace katomic {
   TMB_BIND_ATOMIC
   (
     func, 
-    000000000011, 
+    000000000001, // need at least one to compile
     eval(
       x[0], x[1], 
       x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], 
