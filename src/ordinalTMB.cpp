@@ -31,7 +31,7 @@ Type objective_function<Type>::operator()() {
   DATA_SPARSE_MATRIX(R); // N_SAMPLES x n_id
   int N_SAMPLES = Y.rows(), N_QUESTIONS = Y.cols();
 
-  // DATA_INTEGER(shrinkage);
+  DATA_INTEGER(shrinkage);
   
   PARAMETER_VECTOR(pi_norm); // N_RESPONSES - 1 x N_QUESTIONS, 
   target -= dnorm(pi_norm, Type(0), Type(1), true).sum();
@@ -42,8 +42,9 @@ Type objective_function<Type>::operator()() {
   PARAMETER_VECTOR(iid);
   PARAMETER(sd_log);
   Type sd = exp(sd_log);
+  target -= dnorm(iid, Type(0), sd, true).sum();
 
-  if (shrinkage)
+  if (shrinkage == 1)
     target -= dnorm(sd, Type(0), Type(1), true) + sd_log; // half normal
   else
     target -= dnorm(sd_log, Type(0), Type(1e6), true) + sd_log; // log normal - this equals clmm
