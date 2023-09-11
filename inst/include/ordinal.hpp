@@ -139,7 +139,7 @@ vector<Type> simplex_transform(vector<Type> y) {
  * See Kasper's email
 */
 extern "C" {
-  double F77_NAME(mvbvn)(void *lower, void *upper, int *infin, void *correl);
+  double F77_NAME(mvbvn)(void *lower, void *upper, void *infin, void *correl);
   const static R_CallMethodDef R_CallDef[] = {
     TMB_CALLDEFS,
     {"mvbvn", (DL_FUNC) &F77_NAME(mvbvn), 4},
