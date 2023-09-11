@@ -48,7 +48,12 @@ Type objective_function<Type>::operator()() {
   else
     target -= dnorm(sd_log, Type(0), Type(1e6), true) + sd_log; // log normal - this equals clmm
 
+  DATA_INTEGER(corr_equiv);
   PARAMETER_VECTOR(rhos); // cov() / sig1 * sig2 = ((Q*Q) - Q)/2
+  if (corr_equiv == 1) { // equi corr constraint
+    vector<Type> equi = rhos / rhos.sum() - 1.0/rhos.size();
+    target -= dnorm(equi, Type(0), Type(0.001), true).sum();
+  }
   target -= dnorm(rhos, Type(0), Type(1), true).sum();
   vector<Type> rhos_scale(rhos.size());
   for (int i = 0; i < rhos.size(); ++i)
