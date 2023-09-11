@@ -31,10 +31,10 @@ Type objective_function<Type>::operator()() {
   DATA_SPARSE_MATRIX(R); // N_SAMPLES x n_id
   int N_SAMPLES = Y.rows(), N_QUESTIONS = Y.cols();
 
-  DATA_INTEGER(link);
-  DATA_INTEGER(shrinkage);
+  // DATA_INTEGER(shrinkage);
   
   PARAMETER_VECTOR(pi_norm); // N_RESPONSES - 1 x N_QUESTIONS, 
+  target -= dnorm(pi_norm, Type(0), Type(1), true).sum();
   
   PARAMETER_VECTOR(beta); // shared between outcomes
   target -= dnorm(beta, Type(0), Type(1), true).sum();
@@ -49,6 +49,7 @@ Type objective_function<Type>::operator()() {
     target -= dnorm(sd_log, Type(0), Type(1e6), true) + sd_log; // log normal - this equals clmm
 
   PARAMETER_VECTOR(rhos); // cov() / sig1 * sig2 = ((Q*Q) - Q)/2
+  target -= dnorm(rhos, Type(0), Type(1), true).sum();
   vector<Type> rhos_scale(rhos.size());
   for (int i = 0; i < rhos.size(); ++i)
     rhos_scale[i] = (exp(2.0 * rhos[i]) - 1.0) / (exp(2.0 * rhos[i]) + 1.0);
@@ -65,17 +66,26 @@ Type objective_function<Type>::operator()() {
     for (int q = 0; q < N_QUESTIONS - 1; ++q) { // double loop through outcomes
       for (int p = q+1; p < N_QUESTIONS; ++p) { // double loop through outcomes
         Type y1 = Y(n, q), y2 = Y(n, p); // current raw responses
+        int shift_q = q * 4, shift_p = p * 4;
         Type c_rho = rhos_scale[rho_id]; // current correllation
         ++rho_id; // increase here in case of skipping
-        ll[n] = log( katomic::BVN(y1, y2, // data
-          pi_norm[1-1], pi_norm[2-1], pi_norm[3-1], pi_norm[4-1], 
-          pi_norm[5-1], pi_norm[6-1], pi_norm[7-1], pi_norm[8-1],
-          eta[n], c_rho) + 1e-12);
-        target -= ll[n];
+        ll[n] = katomic::BVN(y1, y2, // data
+          pi_norm[shift_q], pi_norm[shift_q + 1], pi_norm[shift_q + 2], pi_norm[shift_q + 3], 
+          pi_norm[shift_p], pi_norm[shift_p + 1], pi_norm[shift_p + 2], pi_norm[shift_p + 3],
+          eta[n], c_rho);
+        target -= log(ll[n] + FLT_MIN);
       } // end 2D
     } // end individual
   } // end data
 
+
+  matrix<Type> cutpoints(4, N_QUESTIONS);
+  for (int q = 0; q < N_QUESTIONS; ++q) {
+    vector<Type> c_pi = pi_norm(Eigen::seqN(q * 4, 4)), // n_responses - 1
+      pi = simplex_transform(c_pi); // n_responses
+    cutpoints.col(q) = make_cutpoints(pi, 2); // n_responses - 1
+  }
+  REPORT(cutpoints)
   REPORT(ll);
   REPORT(rhos_scale);
   REPORT(target);

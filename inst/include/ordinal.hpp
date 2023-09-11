@@ -235,7 +235,7 @@ namespace katomic
   TMB_BIND_ATOMIC
   (
     func, 
-    000000000001, // need at least one to compile
+    000000000011, // need at least one to compile
     eval(
       x[0], x[1], 
       x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], 
