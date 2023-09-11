@@ -152,3 +152,113 @@ extern "C" {
     TMB_CCALLABLES("ordinalTMB");
   }
 }
+
+namespace katomic {
+
+  template<class Float>
+  Float make_bounds(Float x, Float r_max) {
+    Float ans = 0.0;
+    if (x == 1) { // dimension 1 prep for bivariate
+      ans = 0.;
+    } else if ((x > 1) & (x < r_max)) {
+      ans = 2.;              
+    } else if (x == r_max) {
+      ans = 1.;
+    }
+    return ans;
+  }
+
+  template<class Float>
+  struct BVN_t
+  {
+    typedef Float Scalar;
+    Float y1, y2; // data
+    Float c1, c2, c3, c4, c5, c6, c7, c8; // eight cutpoints
+    Float eta, rho;
+    // Evaluate the cumulative bivariate density 
+    Float operator() () {
+      Float ans = 0;
+      
+      int N_RESPONSES = 5, N_CUTS = N_RESPONSES - 1;
+
+      vector<Float> c_pi0(N_CUTS);
+      vector<Float> c_pi1(N_CUTS);
+      c_pi0 << c1, c2, c3, c4;
+      c_pi1 << c5, c6, c7, c8;
+      vector<Float> pi0 = simplex_transform(c_pi0);
+      vector<Float> pi1 = simplex_transform(c_pi1);
+
+      vector<Float> C0(6), C1(6);
+      C0[0] = -INFINITY; C0[5] = INFINITY;
+      C1[0] = -INFINITY; C1[5] = INFINITY;
+
+      CppAD::vector<double> cum_sum0(1), cum_sum1(1);
+      // Float = CppAD::vector<atomic::tiny_ad::variable<3, 2, double> >&
+      // CppAD::vector<Type> atomic::pnorm1 (CppAD::vector< Type > x)
+
+      cum_sum0[0] = 0.;
+      cum_sum1[0] = 0.;
+      for (int c = 1; c <= 4; c++) {
+        cum_sum0[0] += asDouble(pi0[c - 1]);
+        cum_sum1[0] += asDouble(pi1[c - 1]);
+        C0[c] = qnorm(cum_sum0[0]);
+        C1[c] = qnorm(cum_sum1[0]);
+      }
+
+      int y1i = asDouble(y1);
+      int y2i = asDouble(y2);
+      Float 
+        l0 = C0[y1i - 1], // trick to avoid ifs
+        u0 = C0[y1i    ], // trick to avoid ifs
+        l1 = C1[y2i - 1], // trick to avoid ifs
+        u1 = C1[y2i    ], // trick to avoid ifs
+        i0 = make_bounds(y1, Float(N_RESPONSES)),
+        i1 = make_bounds(y2, Float(N_RESPONSES));
+
+      // vector<Float> lower(2), upper(2), infin(2); 
+      Float lower[2], upper[2], infin[2]; 
+      lower[0] = l0 - eta;
+      lower[1] = l1 - eta;
+      upper[0] = u0 - eta;
+      upper[1] = u1 - eta;
+      infin[0] = i0;
+      infin[1] = i1;
+
+      ans += mvbvn_(&lower, &upper, &infin, &rho);
+      if (!atomic::tiny_ad::isfinite(ans)) ans = 0;
+      return ans;
+    };
+  };
+  
+  template<class Float>
+  Float eval(
+    Float y1, Float y2,
+    Float c1, Float c2, Float c3, Float c4, Float c5, Float c6, Float c7, Float c8,
+    Float eta, Float rho) 
+  {
+    BVN_t<Float> f = {y1, y2, c1, c2, c3, c4, c5, c6, c7, c8, eta, rho};
+    return f();
+  }
+  
+  TMB_BIND_ATOMIC
+  (
+    func, 
+    000000000011, 
+    eval(
+      x[0], x[1], 
+      x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], 
+      x[10], x[11]
+    )
+  )
+  
+  template<class Type>
+  Type BVN(
+    Type y1, Type y2,
+    Type c1, Type c2, Type c3, Type c4, Type c5, Type c6, Type c7, Type c8,
+    Type eta, Type rho) 
+  {
+    vector<Type> args(13); // Last index reserved for derivative order
+    args << y1, y2, c1, c2, c3, c4, c5, c6, c7, c8, eta, rho, 0; 
+    return katomic::func(CppAD::vector<Type>(args))[0];
+  }
+}

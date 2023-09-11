@@ -26,23 +26,15 @@ template <class Type>
 Type objective_function<Type>::operator()() {
   Type target = 0.0;
 
-  DATA_IMATRIX(Y); // n_samples x n_questions
-  DATA_MATRIX(X); // n_samples x P
-  DATA_SPARSE_MATRIX(R); // n_samples x n_id
-  int n_samples = Y.rows(), n_questions = Y.cols();
+  DATA_MATRIX(Y); // N_SAMPLES x N_QUESTIONS
+  DATA_MATRIX(X); // N_SAMPLES x P
+  DATA_SPARSE_MATRIX(R); // N_SAMPLES x n_id
+  int N_SAMPLES = Y.rows(), N_QUESTIONS = Y.cols();
 
   DATA_INTEGER(link);
   DATA_INTEGER(shrinkage);
   
-  PARAMETER_MATRIX(pi_norm); // n_responses - 1 x n_questions, length J-1, then transform to simplex J
-  int n_responses = pi_norm.rows() + 1;
-  matrix<Type> cutpoints(n_responses - 1, n_questions);
-  for (int q = 0; q < n_questions; ++q) {
-    vector<Type> 
-      c_pi = pi_norm.col(q), // n_responses - 1
-      pi = simplex_transform(c_pi); // n_responses
-    cutpoints.col(q) = make_cutpoints(pi, link); // n_responses - 1
-  }
+  PARAMETER_VECTOR(pi_norm); // N_RESPONSES - 1 x N_QUESTIONS, 
   
   PARAMETER_VECTOR(beta); // shared between outcomes
   target -= dnorm(beta, Type(0), Type(1), true).sum();
@@ -58,64 +50,35 @@ Type objective_function<Type>::operator()() {
 
   PARAMETER_VECTOR(rhos); // cov() / sig1 * sig2 = ((Q*Q) - Q)/2
   vector<Type> rhos_scale(rhos.size());
-  for (int i = 0; i < rhos.size(); ++i) {
-    rhos_scale[i] = theta_to_rho(rhos[i]);
-    target -= beta_correlation_lpdf(rhos[i], Type(2.0), Type(2.0));
-  }
+  for (int i = 0; i < rhos.size(); ++i)
+    rhos_scale[i] = (exp(2.0 * rhos[i]) - 1.0) / (exp(2.0 * rhos[i]) + 1.0);
 
   vector<Type> eta = X * beta;
   vector<Type> ide = R * iid;
   eta += ide;
   
   // Composite likelihood
-  vector<Type> ll(n_samples);
-  vector<Type> lower(2), upper(2); // change in loop
-  vector<int> infin(2); // change in loop
-  for (int n=0; n < n_samples; n++) {
+  vector<Type> ll(N_SAMPLES);
+  ll.setZero();
+  for (int n=0; n < N_SAMPLES; n++) {
     int rho_id = 0; // unstructured correlation
-    for (int q = 0; q < n_questions - 1; ++q) { // double loop through outcomes
-      for (int p = q+1; p < n_questions; ++p) { // double loop through outcomes
-        int Yq = Y(n, q), Yp = Y(n, p); // current raw responses
+    for (int q = 0; q < N_QUESTIONS - 1; ++q) { // double loop through outcomes
+      for (int p = q+1; p < N_QUESTIONS; ++p) { // double loop through outcomes
+        Type y1 = Y(n, q), y2 = Y(n, p); // current raw responses
         Type c_rho = rhos_scale[rho_id]; // current correllation
         ++rho_id; // increase here in case of skipping
-        if (std::isnan(Yq) | std::isnan(Yp)) continue;
-        if (Yq == 1) { // dimension 1 prep for bivariate
-          lower(0) = 0; // actually infty - see infin
-          upper(0) = cutpoints(Yq - 1, q) - eta[n];
-          infin(0) = 0;
-        } else if ((Yq > 1) & (Yq < n_responses)) {
-          lower(0) = cutpoints(Yq - 1 - 1, q) - eta[n];
-          upper(0) = cutpoints(Yq - 1, q) - eta[n];
-          infin(0) = 2;              
-        } else if (Yq == n_responses) {
-          lower(0) = cutpoints(Yq - 1 - 1, q) - eta[n];
-          upper(0) = 0; // actually infty - see infin
-          infin(0) = 1;
-        }        
-        if (Yp == 1) { // dimension 2 prep for bivariate
-          lower(1) = 0; // actually infty - see infin
-          upper(1) = cutpoints(Yp - 1, p) - eta[n];
-          infin(1) = 0;
-        } else if ((Yp > 1) & (Yp < n_responses)) {
-          lower(1) = cutpoints(Yp - 1 - 1, p) - eta[n];
-          upper(1) = cutpoints(Yp - 1, p) - eta[n];
-          infin(1) = 2;              
-        } else if (Yp == n_responses) {
-          lower(1) = cutpoints(Yp - 1 - 1, p) - eta[n];
-          upper(1) = 0; // actually infty - see infin
-          infin(1) = 1;
-        }
-        double lli = mvbvn_(&lower(0), &upper(0), &infin(0), &c_rho);
-        ll[n] = log(lli);
+        ll[n] = log( katomic::BVN(y1, y2, // data
+          pi_norm[1-1], pi_norm[2-1], pi_norm[3-1], pi_norm[4-1], 
+          pi_norm[5-1], pi_norm[6-1], pi_norm[7-1], pi_norm[8-1],
+          eta[n], c_rho) + 1e-12);
+        target -= ll[n];
       } // end 2D
     } // end individual
   } // end data
 
-  target -= ll.sum();
-
-  REPORT(cutpoints);
   REPORT(ll);
   REPORT(rhos_scale);
+  REPORT(target);
 
   return target;
 }
