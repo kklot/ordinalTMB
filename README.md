@@ -44,7 +44,8 @@ By priorities
 - [x] Fit an ordinal logistic with random intercepts and compared with
   `clmm`
 - [x] add probit link and compare with `clmm`, `clm`
-- [ ] add multivariates ordinal
+- [x] add multivariates ordinal (probit link) and compared to `mvord`
+  - gradient does not work, but estimate with BFGS like `mvord` does
 - [ ] add other links (c-log-log,…)
 - [ ] add glm-ism formula interface?
 

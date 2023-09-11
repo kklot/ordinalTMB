@@ -1,3 +1,10 @@
+#' norm to correlation
+#' @export
+norm2corr <- function(x) {
+  (exp(2.0 * x) - 1.0) / (exp(2.0 * x) + 1.0)
+}
+
+invlogit = function (x) 1/(1 + exp(-x))
 # simplex transform
 invlogit = function (x) 1/(1 + exp(-x))
 

@@ -3,6 +3,7 @@
 export("%>%")
 export(as_unit_vector)
 export(make_iid_matrix)
+export(norm2corr)
 export(rmvnorm_sparseprec)
 export(sample_tmb)
 export(simplex_transform)
