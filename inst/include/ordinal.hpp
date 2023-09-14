@@ -155,6 +155,7 @@ extern "C" {
 
 namespace katomic 
 {
+  using atomic::tiny_ad::isfinite;
   template<class Float>
   struct BVN_t
   {
@@ -210,7 +211,6 @@ namespace katomic
       upper[0] = ly1;
       upper[1] = ly2;
       Float p4 = mvbvn_(lower_null, upper, infin_null, &rho);
-      using atomic::tiny_ad::isfinite;
       p1 = (!isfinite(p1)) ? 0 : p1;
       p2 = (!isfinite(p2)) ? 0 : p2;
       p3 = (!isfinite(p3)) ? 0 : p3;

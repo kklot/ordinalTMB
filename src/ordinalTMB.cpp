@@ -24,7 +24,7 @@
 // Only for logit link
 template <class Type>
 Type objective_function<Type>::operator()() {
-  Type target = 0.0;
+  parallel_accumulator<Type> target(this);
 
   DATA_MATRIX(Y); // N_SAMPLES x N_QUESTIONS
   DATA_MATRIX(X); // N_SAMPLES x P
@@ -42,44 +42,65 @@ Type objective_function<Type>::operator()() {
   PARAMETER_VECTOR(iid);
   PARAMETER(sd_log);
   Type sd = exp(sd_log);
-  target -= dnorm(iid, Type(0), sd, true).sum();
 
-  if (shrinkage == 1)
-    target -= dnorm(sd, Type(0), Type(1), true) + sd_log; // half normal
-  else
-    target -= dnorm(sd_log, Type(0), Type(1e6), true) + sd_log; // log normal - this equals clmm
-
-  DATA_INTEGER(corr_equiv);
-  PARAMETER_VECTOR(rhos); // cov() / sig1 * sig2 = ((Q*Q) - Q)/2
-  if (corr_equiv == 1) { // equi corr constraint
-    vector<Type> equi = rhos / rhos.sum() - 1.0/rhos.size();
-    target -= dnorm(equi, Type(0), Type(0.001), true).sum();
+  if (shrinkage == 1) {
+    target -= dnorm(sd, Type(0), Type(2.5), true) + sd_log; // half normal
+    target -= dnorm(iid, Type(0), sd, true).sum();
   }
-  target -= dnorm(rhos, Type(0), Type(1), true).sum();
+
+  PARAMETER_VECTOR(rhos); // cov() / sig1 * sig2 = ((Q*Q) - Q)/2
+  DATA_INTEGER(eta_LKJ);
+
   vector<Type> rhos_scale(rhos.size());
   for (int i = 0; i < rhos.size(); ++i)
     rhos_scale[i] = (exp(2.0 * rhos[i]) - 1.0) / (exp(2.0 * rhos[i]) + 1.0);
+
+  // Build Cholesky upper-tri
+  matrix<Type> Z(N_QUESTIONS, N_QUESTIONS), W(N_QUESTIONS, N_QUESTIONS); 
+  Z.setZero(); W.setZero();
+  int track = 0;
+  for (int i = 0; i < N_QUESTIONS; ++i) {
+    for (int j = 0; j < N_QUESTIONS; ++j) {
+      if (i == j) Z(i,i) = 1;
+      if (i < j) {
+        Z(i,j) = rhos_scale[track];
+        ++track;
+      }
+    }
+  }
+  W(0,0) = 1;
+  for (int j = 1; j < N_QUESTIONS; ++j) W(0,j) = Z(0,j);
+  for (int i = 1; i < N_QUESTIONS; ++i)
+    for (int j = 1; j < N_QUESTIONS; ++j)
+      if (i <= j) W(i,j) = ( Z(i,j) / Z(i-1,j) ) * W(i-1,j) * pow(1 - Z(i-1,j) * Z(i-1,j), 0.5);
+  // Correlation matrix
+  matrix<Type> RHO = W.transpose() * W;
+  // LKJ likelihood: uniform prior of the correlation
+  int Km1 = N_QUESTIONS - 1;
+  vector<Type> log_diagonals = log(W.diagonal().tail(Km1).array());
+  vector<Type> pkj_lpdf(Km1);
+  for (int k = 0; k < Km1; k++)
+    pkj_lpdf[k] = (Km1 - k - 1) * log_diagonals(k);
+  pkj_lpdf += (2.0 * eta_LKJ - 2.0) * log_diagonals;
+  target -= sum(pkj_lpdf);
 
   vector<Type> eta = X * beta;
   vector<Type> ide = R * iid;
   eta += ide;
   
   // Composite likelihood
-  vector<Type> ll(N_SAMPLES);
-  ll.setZero();
   for (int n=0; n < N_SAMPLES; n++) {
-    int rho_id = 0; // unstructured correlation
     for (int q = 0; q < N_QUESTIONS - 1; ++q) { // double loop through outcomes
       for (int p = q+1; p < N_QUESTIONS; ++p) { // double loop through outcomes
         Type y1 = Y(n, q), y2 = Y(n, p); // current raw responses
         int shift_q = q * 4, shift_p = p * 4;
-        Type c_rho = rhos_scale[rho_id]; // current correllation
-        ++rho_id; // increase here in case of skipping
-        ll[n] = katomic::BVN(y1, y2, // data
+        Type c_rho = RHO(q,p); // current correllation
+        Type ll_n = katomic::BVN(
+          y1, y2, // data
           pi_norm[shift_q], pi_norm[shift_q + 1], pi_norm[shift_q + 2], pi_norm[shift_q + 3], 
           pi_norm[shift_p], pi_norm[shift_p + 1], pi_norm[shift_p + 2], pi_norm[shift_p + 3],
           eta[n], c_rho);
-        target -= log(ll[n] + FLT_MIN);
+        target -= log(ll_n + FLT_MIN);
       } // end 2D
     } // end individual
   } // end data
@@ -91,10 +112,12 @@ Type objective_function<Type>::operator()() {
       pi = simplex_transform(c_pi); // n_responses
     cutpoints.col(q) = make_cutpoints(pi, 2); // n_responses - 1
   }
-  REPORT(cutpoints)
-  REPORT(ll);
+  REPORT(cutpoints);
   REPORT(rhos_scale);
-  REPORT(target);
+  REPORT(RHO);
+  REPORT(beta);
+  REPORT(iid);
+  REPORT(sd);
 
   return target;
 }
